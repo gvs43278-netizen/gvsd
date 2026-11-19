@@ -103,6 +103,7 @@ import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.auth
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.launch
 
 enum class AppDestination(
     val route: String,
@@ -190,6 +191,7 @@ fun AuthenticatedAppShell(
     val isBusy by viewModel.isBusy.collectAsStateWithLifecycle()
     val quotaWarning by viewModel.quotaExceededWarning.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val uiScope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { msg ->
@@ -407,6 +409,9 @@ fun AuthenticatedAppShell(
                                         onOpenAccountDetail = { acc ->
                                             selectedAccountId = acc.id
                                             navigateTo(AppDestination.ACCOUNTS)
+                                        },
+                                        onOpenLoans = {
+                                            navigateTo(AppDestination.LOANS)
                                         }
                                     )
                                 }
@@ -508,7 +513,7 @@ fun AuthenticatedAppShell(
                                         pendingTransactions = pendingTxs,
                                         loans = loans,
                                         onNotify = { msg ->
-                                            // Show snackbar via coroutine
+                                            uiScope.launch { snackbarHostState.showSnackbar(msg) }
                                         }
                                     )
                                 }
@@ -526,7 +531,9 @@ fun AuthenticatedAppShell(
                                         onRemoveEmployee = { viewModel.removeEmployee(it) },
                                         onBuildBackupJson = { viewModel.buildBackupJson() },
                                         onRestoreBackup = { raw -> viewModel.restoreBackup(context, raw) },
-                                        onNotify = {},
+                                        onNotify = { msg ->
+                                            uiScope.launch { snackbarHostState.showSnackbar(msg) }
+                                        },
                                         onSignOut = onSignOut
                                     )
                                 }

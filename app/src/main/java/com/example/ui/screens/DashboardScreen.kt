@@ -63,7 +63,8 @@ fun DashboardScreen(
     onOpenBalanceWithdraw: () -> Unit,
     onOpenCustomerTx: () -> Unit,
     onOpenPendingQueue: () -> Unit,
-    onOpenAccountDetail: (Account) -> Unit
+    onOpenAccountDetail: (Account) -> Unit,
+    onOpenLoans: () -> Unit = {}
 ) {
     val pendingCount = pendingTransactions.count { it.status == "PENDING" }
 
@@ -342,6 +343,58 @@ fun DashboardScreen(
                                 fontWeight = FontWeight.Bold,
                                 color = if (summary.netProfitLossPaisa >= 0) ProfitGreen else LossRed,
                                 modifier = Modifier.testTag("dashboard_net_profit")
+                            )
+                        }
+                    }
+                }
+
+                // Loan Receivable & Payable Summary Boxes
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Card(
+                        onClick = onOpenLoans,
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("dashboard_loan_receivable"),
+                        colors = CardDefaults.cardColors(containerColor = ProfitGreen.copy(alpha = 0.1f)),
+                        border = BorderStroke(1.dp, ProfitGreen.copy(alpha = 0.4f))
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Text(
+                                text = "মোট লোন পাওনা",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = ProfitGreen,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                text = MoneyUtils.formatBdt(summary.totalLoanReceivablePaisa),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = ProfitGreen
+                            )
+                        }
+                    }
+                    Card(
+                        onClick = onOpenLoans,
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("dashboard_loan_payable"),
+                        colors = CardDefaults.cardColors(containerColor = LossRed.copy(alpha = 0.1f)),
+                        border = BorderStroke(1.dp, LossRed.copy(alpha = 0.4f))
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Text(
+                                text = "মোট লোন দেনা",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = LossRed,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                text = MoneyUtils.formatBdt(summary.totalLoanPayablePaisa),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = LossRed
                             )
                         }
                     }

@@ -733,6 +733,17 @@ private fun MobileRechargeForm(
     onError: (String) -> Unit,
     onSubmit: (TxDraft, () -> Unit) -> Unit
 ) {
+    val rechargeSourceAccounts = remember(accounts) {
+        val byId = accounts.associateBy { it.id }
+        BusinessConstants.RECHARGE_SOURCE_ACCOUNT_IDS.mapNotNull { byId[it] }
+    }
+    var sourceAccId by remember(rechargeSourceAccounts) {
+        mutableStateOf(
+            rechargeSourceAccounts.firstOrNull { it.id == BusinessConstants.ACC_EASY_RECHARGE }?.id
+                ?: rechargeSourceAccounts.firstOrNull()?.id
+                ?: BusinessConstants.ACC_EASY_RECHARGE
+        )
+    }
     var mobile by remember { mutableStateOf("") }
     var operator by remember { mutableStateOf(BusinessConstants.TELECOM_OPERATORS.first()) }
     var operatorMenuExpanded by remember { mutableStateOf(false) }
@@ -758,12 +769,22 @@ private fun MobileRechargeForm(
                     Icon(Icons.Filled.Info, contentDescription = null, tint = MaterialTheme.colorScheme.onTertiaryContainer)
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        "এটি শুধু Easy Recharge হিসাব রাখে — কোনো লাইভ টেলিকম রিচার্জ API সংযুক্ত নয়।",
+                        "এটি Easy Recharge, bKash, Nagad, Upay ও Rocket থেকে মোবাইল রিচার্জের হিসাব রাখে — কোনো লাইভ টেলিকম রিচার্জ API সংযুক্ত নয়।",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onTertiaryContainer
                     )
                 }
             }
+        }
+        item {
+            AccountPickerField(
+                label = "রিচার্জের উৎস অ্যাকাউন্ট (-)",
+                accounts = rechargeSourceAccounts.ifEmpty { accounts },
+                selectedAccountId = sourceAccId,
+                onAccountSelected = { sourceAccId = it.id },
+                showBalance = isOwner,
+                testTag = "recharge_source_account"
+            )
         }
         item {
             OutlinedTextField(
@@ -802,17 +823,18 @@ private fun MobileRechargeForm(
             BdtAmountField(
                 value = rechargeAmountText,
                 onValueChange = { rechargeAmountText = it },
-                label = "রিচার্জের পরিমাণ (Easy Recharge থেকে কমবে)",
+                label = "রিচার্জের পরিমাণ (নির্বাচিত উৎস অ্যাকাউন্ট থেকে কমবে)",
                 testTag = "recharge_amount"
             )
         }
         item {
             AccountPickerField(
-                label = "গ্রাহকের টাকা জমা অ্যাকাউন্ট",
+                label = "গ্রাহকের টাকা জমা অ্যাকাউন্ট (+)",
                 accounts = accounts,
                 selectedAccountId = receiveAccId,
                 onAccountSelected = { receiveAccId = it.id },
-                showBalance = isOwner
+                showBalance = isOwner,
+                testTag = "recharge_receive_account"
             )
         }
         item {
@@ -857,15 +879,18 @@ private fun MobileRechargeForm(
                     }
                     val recPaisa = if (receivedAmountText.isBlank()) 0L else (MoneyUtils.parseBdtToPaisa(receivedAmountText) ?: 0L)
                     val commPaisa = if (commissionText.isBlank()) 0L else (MoneyUtils.parseBdtToPaisa(commissionText) ?: 0L)
+                    val sourceAccName = rechargeSourceAccounts.firstOrNull { it.id == sourceAccId }?.name
+                        ?: accounts.firstOrNull { it.id == sourceAccId }?.name
+                        ?: sourceAccId
                     val draft = TxDraft(
                         type = TxType.MOBILE_RECHARGE,
                         subType = operator,
-                        title = "রিচার্জ ($operator): ${mobile.trim()}",
+                        title = "রিচার্জ ($operator - $sourceAccName): ${mobile.trim()}",
                         partyName = mobile.trim(),
                         phone = mobile.trim(),
                         receiveAccountId = if (recPaisa > 0L) receiveAccId else "",
                         receiveAmountPaisa = recPaisa,
-                        payAccountId = BusinessConstants.ACC_EASY_RECHARGE,
+                        payAccountId = sourceAccId,
                         payAmountPaisa = rechPaisa,
                         commissionIncomePaisa = commPaisa,
                         externalTxId = externalTxId.trim(),

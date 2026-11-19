@@ -189,7 +189,8 @@ object AccountingEngine {
     fun computeDashboardSummary(
         accounts: List<Account>,
         transactions: List<LedgerTransaction>,
-        nowMillis: Long = System.currentTimeMillis()
+        nowMillis: Long = System.currentTimeMillis(),
+        loans: List<LoanRecord> = emptyList()
     ): DashboardSummary {
         val accountMap = accounts.associateBy { it.id }
         val cash = accountMap[BusinessConstants.ACC_CASH]?.balancePaisa ?: 0L
@@ -243,6 +244,13 @@ object AccountingEngine {
         val todayExpense = todayPartnerCommExpense + todayShopExpense
         val todayNet = todayCommIncome - todayPartnerCommExpense - todayShopExpense
 
+        val totalLoanReceivable = loans
+            .filter { it.direction == "RECEIVABLE" && it.status != "PAID" }
+            .sumOf { it.totalRemainingPaisa }
+        val totalLoanPayable = loans
+            .filter { it.direction == "PAYABLE" && it.status != "PAID" }
+            .sumOf { it.totalRemainingPaisa }
+
         return DashboardSummary(
             cashBalancePaisa = cash,
             totalBkashBalancePaisa = totalBkash,
@@ -260,6 +268,8 @@ object AccountingEngine {
             netProfitLossPaisa = netProfitLoss,
             interestIncomePaisa = interestIncome,
             interestExpensePaisa = interestExpense,
+            totalLoanReceivablePaisa = totalLoanReceivable,
+            totalLoanPayablePaisa = totalLoanPayable,
             todayVolumePaisa = todayVolume,
             todayCommissionPaisa = todayCommIncome,
             todayExpensePaisa = todayExpense,

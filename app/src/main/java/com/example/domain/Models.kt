@@ -65,6 +65,18 @@ object BusinessConstants {
     )
 
     val TELECOM_OPERATORS = listOf("Grameenphone", "Robi", "Banglalink", "Airtel", "Teletalk")
+
+    val RECHARGE_SOURCE_ACCOUNT_IDS = listOf(
+        ACC_EASY_RECHARGE,
+        ACC_BKASH_1,
+        ACC_BKASH_2,
+        ACC_BKASH_3,
+        ACC_BKASH_4,
+        ACC_BKASH_5,
+        ACC_NAGAD,
+        ACC_UPAY,
+        ACC_ROCKET
+    )
 }
 
 object TxType {
@@ -353,6 +365,8 @@ data class DashboardSummary(
     val netProfitLossPaisa: Long = 0L,
     val interestIncomePaisa: Long = 0L,
     val interestExpensePaisa: Long = 0L,
+    val totalLoanReceivablePaisa: Long = 0L,
+    val totalLoanPayablePaisa: Long = 0L,
     val todayVolumePaisa: Long = 0L,
     val todayCommissionPaisa: Long = 0L,
     val todayExpensePaisa: Long = 0L,

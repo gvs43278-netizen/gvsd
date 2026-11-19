@@ -137,11 +137,13 @@ class BusinessViewModel(
 
     val dashboardSummary: StateFlow<DashboardSummary> = combine(
         accountsState,
-        transactionsState
-    ) { accState, txState ->
+        transactionsState,
+        loansState
+    ) { accState, txState, loanState ->
         val accs = (accState as? UiState.Success)?.data ?: emptyList()
         val txs = (txState as? UiState.Success)?.data ?: emptyList()
-        AccountingEngine.computeDashboardSummary(accs, txs)
+        val loans = (loanState as? UiState.Success)?.data ?: emptyList()
+        AccountingEngine.computeDashboardSummary(accs, txs, loans = loans)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), DashboardSummary())
 
     fun observeLoanRepayments(loanId: String): Flow<List<LoanRepayment>> {
