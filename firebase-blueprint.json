@@ -1,0 +1,304 @@
+{
+  "entities": {
+    "OwnerConfig": {
+      "title": "OwnerConfig",
+      "description": "Stores verified Owner Gmail, active Owner Firebase UID, and legacy Super Admin UID reference.",
+      "type": "object",
+      "properties": {
+        "ownerEmail": { "type": "string" },
+        "ownerUid": { "type": "string" },
+        "legacySuperAdminUid": { "type": "string" },
+        "uidVerified": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerEmail", "ownerUid", "legacySuperAdminUid", "uidVerified", "updatedAt"]
+    },
+    "EmployeeAccess": {
+      "title": "EmployeeAccess",
+      "description": "Employee authorization record keyed by verified lowercase Gmail address.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["EMPLOYEE"] },
+        "active": { "type": "boolean" },
+        "linkedUid": { "type": "string" },
+        "addedByUid": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "name", "role", "active", "addedByUid", "createdAt", "updatedAt"]
+    },
+    "Account": {
+      "title": "Account",
+      "description": "One of the 11 distinct business accounts storing balance in integer paisa (1 BDT = 100 paisa).",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "category": { "type": "string", "enum": ["CASH", "BKASH", "NAGAD", "ROCKET", "UPAY", "BANK", "RECHARGE"] },
+        "lastFourDigits": { "type": "string" },
+        "balancePaisa": { "type": "integer" },
+        "sortOrder": { "type": "integer" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "category", "lastFourDigits", "balancePaisa", "sortOrder", "updatedAt"]
+    },
+    "Partner": {
+      "title": "Partner",
+      "description": "Business partner commission and payable/receivable ledger.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "commissionPerThousandPaisa": { "type": "integer" },
+        "bKashOnlyCommission": { "type": "boolean" },
+        "canCustomizeCommission": { "type": "boolean" },
+        "totalSentPaisa": { "type": "integer" },
+        "totalReceivedPaisa": { "type": "integer" },
+        "totalCommissionExpensePaisa": { "type": "integer" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "name",
+        "commissionPerThousandPaisa",
+        "bKashOnlyCommission",
+        "canCustomizeCommission",
+        "totalSentPaisa",
+        "totalReceivedPaisa",
+        "totalCommissionExpensePaisa",
+        "updatedAt"
+      ]
+    },
+    "LedgerTransaction": {
+      "title": "LedgerTransaction",
+      "description": "Immutable approved business transaction in integer paisa.",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string" },
+        "subType": { "type": "string" },
+        "title": { "type": "string" },
+        "partyName": { "type": "string" },
+        "phone": { "type": "string" },
+        "receiveAccountId": { "type": "string" },
+        "receiveAmountPaisa": { "type": "integer" },
+        "payAccountId": { "type": "string" },
+        "payAmountPaisa": { "type": "integer" },
+        "commissionIncomePaisa": { "type": "integer" },
+        "commissionExpensePaisa": { "type": "integer" },
+        "expenseAmountPaisa": { "type": "integer" },
+        "interestIncomePaisa": { "type": "integer" },
+        "interestExpensePaisa": { "type": "integer" },
+        "capitalDeltaPaisa": { "type": "integer" },
+        "externalTxId": { "type": "string" },
+        "idempotencyKey": { "type": "string" },
+        "note": { "type": "string" },
+        "businessDateMillis": { "type": "integer" },
+        "partnerId": { "type": "string" },
+        "loanId": { "type": "string" },
+        "operatorName": { "type": "string" },
+        "submittedByUid": { "type": "string" },
+        "submittedByName": { "type": "string" },
+        "approvedByUid": { "type": "string" },
+        "reversed": { "type": "boolean" },
+        "reversedByTxId": { "type": "string" },
+        "reversalOfTxId": { "type": "string" },
+        "reversalReason": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "type", "subType", "title", "partyName", "phone",
+        "receiveAccountId", "receiveAmountPaisa", "payAccountId", "payAmountPaisa",
+        "commissionIncomePaisa", "commissionExpensePaisa", "expenseAmountPaisa",
+        "interestIncomePaisa", "interestExpensePaisa", "capitalDeltaPaisa",
+        "externalTxId", "idempotencyKey", "note", "businessDateMillis",
+        "partnerId", "loanId", "operatorName",
+        "submittedByUid", "submittedByName", "approvedByUid",
+        "reversed", "reversedByTxId", "reversalOfTxId", "reversalReason",
+        "createdAt", "updatedAt"
+      ]
+    },
+    "PendingTransaction": {
+      "title": "PendingTransaction",
+      "description": "Employee-submitted transaction awaiting Owner approval or rejection.",
+      "type": "object",
+      "properties": {
+        "status": { "type": "string", "enum": ["PENDING", "APPROVED", "REJECTED"] },
+        "type": { "type": "string" },
+        "subType": { "type": "string" },
+        "title": { "type": "string" },
+        "partyName": { "type": "string" },
+        "phone": { "type": "string" },
+        "receiveAccountId": { "type": "string" },
+        "receiveAmountPaisa": { "type": "integer" },
+        "payAccountId": { "type": "string" },
+        "payAmountPaisa": { "type": "integer" },
+        "commissionIncomePaisa": { "type": "integer" },
+        "commissionExpensePaisa": { "type": "integer" },
+        "expenseAmountPaisa": { "type": "integer" },
+        "interestIncomePaisa": { "type": "integer" },
+        "interestExpensePaisa": { "type": "integer" },
+        "capitalDeltaPaisa": { "type": "integer" },
+        "externalTxId": { "type": "string" },
+        "idempotencyKey": { "type": "string" },
+        "note": { "type": "string" },
+        "businessDateMillis": { "type": "integer" },
+        "partnerId": { "type": "string" },
+        "loanId": { "type": "string" },
+        "operatorName": { "type": "string" },
+        "submittedByUid": { "type": "string" },
+        "submittedByEmail": { "type": "string" },
+        "submittedByName": { "type": "string" },
+        "reviewedByUid": { "type": "string" },
+        "approvedTxId": { "type": "string" },
+        "rejectionReason": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "status", "type", "subType", "title", "partyName", "phone",
+        "receiveAccountId", "receiveAmountPaisa", "payAccountId", "payAmountPaisa",
+        "commissionIncomePaisa", "commissionExpensePaisa", "expenseAmountPaisa",
+        "interestIncomePaisa", "interestExpensePaisa", "capitalDeltaPaisa",
+        "externalTxId", "idempotencyKey", "note", "businessDateMillis",
+        "partnerId", "loanId", "operatorName",
+        "submittedByUid", "submittedByEmail", "submittedByName",
+        "reviewedByUid", "approvedTxId", "rejectionReason",
+        "createdAt", "updatedAt"
+      ]
+    },
+    "TransactionKey": {
+      "title": "TransactionKey",
+      "description": "Idempotency and duplicate transaction protection registry.",
+      "type": "object",
+      "properties": {
+        "key": { "type": "string" },
+        "txId": { "type": "string" },
+        "createdByUid": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["key", "txId", "createdByUid", "createdAt"]
+    },
+    "LoanRecord": {
+      "title": "LoanRecord",
+      "description": "Payable or receivable loan tracking principal and interest separately.",
+      "type": "object",
+      "properties": {
+        "direction": { "type": "string", "enum": ["PAYABLE", "RECEIVABLE"] },
+        "personName": { "type": "string" },
+        "phone": { "type": "string" },
+        "accountId": { "type": "string" },
+        "principalPaisa": { "type": "integer" },
+        "interestPaisa": { "type": "integer" },
+        "paidPrincipalPaisa": { "type": "integer" },
+        "paidInterestPaisa": { "type": "integer" },
+        "startDateMillis": { "type": "integer" },
+        "dueDateMillis": { "type": "integer" },
+        "status": { "type": "string", "enum": ["ACTIVE", "PARTIAL", "PAID"] },
+        "note": { "type": "string" },
+        "createdByUid": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "direction", "personName", "phone", "accountId",
+        "principalPaisa", "interestPaisa", "paidPrincipalPaisa", "paidInterestPaisa",
+        "startDateMillis", "dueDateMillis", "status", "note",
+        "createdByUid", "createdAt", "updatedAt"
+      ]
+    },
+    "LoanRepayment": {
+      "title": "LoanRepayment",
+      "description": "Individual loan repayment history entry.",
+      "type": "object",
+      "properties": {
+        "loanId": { "type": "string" },
+        "principalPaidPaisa": { "type": "integer" },
+        "interestPaidPaisa": { "type": "integer" },
+        "accountId": { "type": "string" },
+        "repaymentDateMillis": { "type": "integer" },
+        "note": { "type": "string" },
+        "txId": { "type": "string" },
+        "createdByUid": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "loanId", "principalPaidPaisa", "interestPaidPaisa",
+        "accountId", "repaymentDateMillis", "note", "txId", "createdByUid", "createdAt"
+      ]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Append-only security and financial audit log entry.",
+      "type": "object",
+      "properties": {
+        "action": { "type": "string" },
+        "actorUid": { "type": "string" },
+        "actorEmail": { "type": "string" },
+        "targetId": { "type": "string" },
+        "summary": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["action", "actorUid", "actorEmail", "targetId", "summary", "createdAt"]
+    },
+    "SafetyBackupRecord": {
+      "title": "SafetyBackupRecord",
+      "description": "Metadata record of an automatic pre-restore safety backup.",
+      "type": "object",
+      "properties": {
+        "createdByUid": { "type": "string" },
+        "reason": { "type": "string" },
+        "transactionCount": { "type": "integer" },
+        "accountCount": { "type": "integer" },
+        "localFileName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["createdByUid", "reason", "transactionCount", "accountCount", "localFileName", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/app_config/{configId}": {
+      "schema": { "$ref": "#/entities/OwnerConfig" },
+      "description": "Owner configuration and verified UID binding."
+    },
+    "/employee_access/{employeeEmail}": {
+      "schema": { "$ref": "#/entities/EmployeeAccess" },
+      "description": "Owner-managed employee role registry keyed by email."
+    },
+    "/accounts/{accountId}": {
+      "schema": { "$ref": "#/entities/Account" },
+      "description": "11 business accounts with paisa balances."
+    },
+    "/partners/{partnerId}": {
+      "schema": { "$ref": "#/entities/Partner" },
+      "description": "Business partners and commission configs."
+    },
+    "/transactions/{txId}": {
+      "schema": { "$ref": "#/entities/LedgerTransaction" },
+      "description": "Approved business transactions ledger."
+    },
+    "/pending_transactions/{pendingId}": {
+      "schema": { "$ref": "#/entities/PendingTransaction" },
+      "description": "Employee-submitted pending transactions awaiting Owner approval."
+    },
+    "/transaction_keys/{keyId}": {
+      "schema": { "$ref": "#/entities/TransactionKey" },
+      "description": "Duplicate transaction idempotency keys."
+    },
+    "/loans/{loanId}": {
+      "schema": { "$ref": "#/entities/LoanRecord" },
+      "description": "Payable and receivable loan records."
+    },
+    "/loans/{loanId}/repayments/{repaymentId}": {
+      "schema": { "$ref": "#/entities/LoanRepayment" },
+      "description": "Repayment history for each loan."
+    },
+    "/audit_logs/{logId}": {
+      "schema": { "$ref": "#/entities/AuditLog" },
+      "description": "Immutable security and transaction audit log."
+    },
+    "/safety_backups/{backupId}": {
+      "schema": { "$ref": "#/entities/SafetyBackupRecord" },
+      "description": "Pre-restore automatic safety backup records."
+    }
+  }
+}

@@ -1,0 +1,439 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- GLOBAL PRIMITIVES ---
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isSignedIn() { return request.auth != null; }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidEmailId(email) {
+      return email is string && email.size() >= 5 && email.size() <= 128 &&
+             email.matches('^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$');
+    }
+
+    function isVerifiedOwnerEmail() {
+      return isSignedIn() &&
+             request.auth.token.email_verified == true &&
+             request.auth.token.email == 'ashrafmahmudsany2@gmail.com';
+    }
+
+    // Owner must have verified email AND matching UID stored in /app_config/owner
+    function isOwner() {
+      return isVerifiedOwnerEmail() &&
+             exists(/databases/$(database)/documents/app_config/owner) &&
+             get(/databases/$(database)/documents/app_config/owner).data.ownerUid == request.auth.uid;
+    }
+
+    // Active Employee lookup via verified email in /employee_access/{email}
+    function isActiveEmployee() {
+      return isSignedIn() &&
+             request.auth.token.email_verified == true &&
+             request.auth.token.email is string &&
+             exists(/databases/$(database)/documents/employee_access/$(request.auth.token.email)) &&
+             get(/databases/$(database)/documents/employee_access/$(request.auth.token.email)).data.active == true;
+    }
+
+    // --- VALIDATION HELPERS ---
+    function isValidOwnerConfig(data) {
+      return data.ownerEmail is string && data.ownerEmail.size() <= 128 &&
+             data.ownerUid is string && data.ownerUid.size() >= 1 && data.ownerUid.size() <= 128 &&
+             data.legacySuperAdminUid is string && data.legacySuperAdminUid.size() <= 128 &&
+             data.uidVerified is bool &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidEmployeeAccess(data) {
+      return isValidEmailId(data.email) &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
+             data.role == 'EMPLOYEE' &&
+             data.active is bool &&
+             (!('linkedUid' in data) || (data.linkedUid is string && data.linkedUid.size() <= 128)) &&
+             data.addedByUid is string && data.addedByUid.size() >= 1 && data.addedByUid.size() <= 128 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidAccount(data) {
+      return data.name is string && data.name.size() >= 1 && data.name.size() <= 60 &&
+             data.category in ['CASH', 'BKASH', 'NAGAD', 'ROCKET', 'UPAY', 'BANK', 'RECHARGE'] &&
+             data.lastFourDigits is string && data.lastFourDigits.size() <= 10 &&
+             data.balancePaisa is int &&
+             data.sortOrder is int && data.sortOrder >= 0 && data.sortOrder <= 50 &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidPartner(data) {
+      return data.name is string && data.name.size() >= 1 && data.name.size() <= 80 &&
+             data.commissionPerThousandPaisa is int && data.commissionPerThousandPaisa >= 0 && data.commissionPerThousandPaisa <= 100000 &&
+             data.bKashOnlyCommission is bool &&
+             data.canCustomizeCommission is bool &&
+             data.totalSentPaisa is int && data.totalSentPaisa >= 0 &&
+             data.totalReceivedPaisa is int && data.totalReceivedPaisa >= 0 &&
+             data.totalCommissionExpensePaisa is int && data.totalCommissionExpensePaisa >= 0 &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidTxFields(data) {
+      return data.type in [
+               'BALANCE_ADD', 'BALANCE_WITHDRAW', 'CUSTOMER_TX', 'INTERNAL_TRANSFER',
+               'MOBILE_RECHARGE', 'PARTNER_SEND', 'PARTNER_RECEIVE',
+               'LOAN_DISBURSE', 'LOAN_REPAYMENT', 'BILL_PAYMENT', 'SHOP_EXPENSE', 'REVERSAL'
+             ] &&
+             data.subType is string && data.subType.size() <= 60 &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 160 &&
+             data.partyName is string && data.partyName.size() <= 120 &&
+             data.phone is string && data.phone.size() <= 30 &&
+             data.receiveAccountId is string && data.receiveAccountId.size() <= 60 &&
+             data.receiveAmountPaisa is int && data.receiveAmountPaisa >= 0 &&
+             data.payAccountId is string && data.payAccountId.size() <= 60 &&
+             data.payAmountPaisa is int && data.payAmountPaisa >= 0 &&
+             data.commissionIncomePaisa is int && data.commissionIncomePaisa >= 0 &&
+             data.commissionExpensePaisa is int && data.commissionExpensePaisa >= 0 &&
+             data.expenseAmountPaisa is int && data.expenseAmountPaisa >= 0 &&
+             data.interestIncomePaisa is int && data.interestIncomePaisa >= 0 &&
+             data.interestExpensePaisa is int && data.interestExpensePaisa >= 0 &&
+             data.capitalDeltaPaisa is int &&
+             data.externalTxId is string && data.externalTxId.size() <= 100 &&
+             data.idempotencyKey is string && data.idempotencyKey.size() <= 128 &&
+             data.note is string && data.note.size() <= 500 &&
+             data.businessDateMillis is int && data.businessDateMillis > 0 &&
+             data.partnerId is string && data.partnerId.size() <= 60 &&
+             data.loanId is string && data.loanId.size() <= 128 &&
+             data.operatorName is string && data.operatorName.size() <= 60 &&
+             data.submittedByUid is string && data.submittedByUid.size() >= 1 && data.submittedByUid.size() <= 128 &&
+             data.submittedByName is string && data.submittedByName.size() <= 120 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidTransaction(data) {
+      return isValidTxFields(data) &&
+             data.approvedByUid is string && data.approvedByUid.size() >= 1 && data.approvedByUid.size() <= 128 &&
+             data.reversed is bool &&
+             data.reversedByTxId is string && data.reversedByTxId.size() <= 128 &&
+             data.reversalOfTxId is string && data.reversalOfTxId.size() <= 128 &&
+             data.reversalReason is string && data.reversalReason.size() <= 300;
+    }
+
+    function isValidPendingTransaction(data) {
+      return isValidTxFields(data) &&
+             data.status in ['PENDING', 'APPROVED', 'REJECTED'] &&
+             data.submittedByEmail is string && data.submittedByEmail.size() <= 128 &&
+             data.reviewedByUid is string && data.reviewedByUid.size() <= 128 &&
+             data.approvedTxId is string && data.approvedTxId.size() <= 128 &&
+             data.rejectionReason is string && data.rejectionReason.size() <= 300;
+    }
+
+    function isValidTransactionKey(data) {
+      return data.key is string && data.key.size() >= 1 && data.key.size() <= 128 &&
+             data.txId is string && data.txId.size() >= 1 && data.txId.size() <= 128 &&
+             data.createdByUid is string && data.createdByUid.size() >= 1 && data.createdByUid.size() <= 128 &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    function isValidLoan(data) {
+      return data.direction in ['PAYABLE', 'RECEIVABLE'] &&
+             data.personName is string && data.personName.size() >= 1 && data.personName.size() <= 120 &&
+             data.phone is string && data.phone.size() <= 30 &&
+             data.accountId is string && data.accountId.size() >= 1 && data.accountId.size() <= 60 &&
+             data.principalPaisa is int && data.principalPaisa > 0 &&
+             data.interestPaisa is int && data.interestPaisa >= 0 &&
+             data.paidPrincipalPaisa is int && data.paidPrincipalPaisa >= 0 && data.paidPrincipalPaisa <= data.principalPaisa &&
+             data.paidInterestPaisa is int && data.paidInterestPaisa >= 0 && data.paidInterestPaisa <= data.interestPaisa &&
+             data.startDateMillis is int && data.startDateMillis > 0 &&
+             data.dueDateMillis is int && data.dueDateMillis > 0 &&
+             data.status in ['ACTIVE', 'PARTIAL', 'PAID'] &&
+             data.note is string && data.note.size() <= 500 &&
+             data.createdByUid is string && data.createdByUid.size() >= 1 && data.createdByUid.size() <= 128 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidLoanRepayment(data) {
+      return data.loanId is string && data.loanId.size() >= 1 && data.loanId.size() <= 128 &&
+             data.principalPaidPaisa is int && data.principalPaidPaisa >= 0 &&
+             data.interestPaidPaisa is int && data.interestPaidPaisa >= 0 &&
+             (data.principalPaidPaisa + data.interestPaidPaisa) > 0 &&
+             data.accountId is string && data.accountId.size() >= 1 && data.accountId.size() <= 60 &&
+             data.repaymentDateMillis is int && data.repaymentDateMillis > 0 &&
+             data.note is string && data.note.size() <= 300 &&
+             data.txId is string && data.txId.size() >= 1 && data.txId.size() <= 128 &&
+             data.createdByUid is string && data.createdByUid.size() >= 1 && data.createdByUid.size() <= 128 &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    function isValidAuditLog(data) {
+      return data.action is string && data.action.size() >= 1 && data.action.size() <= 60 &&
+             data.actorUid is string && data.actorUid.size() >= 1 && data.actorUid.size() <= 128 &&
+             data.actorEmail is string && data.actorEmail.size() <= 128 &&
+             data.targetId is string && data.targetId.size() <= 128 &&
+             data.summary is string && data.summary.size() >= 1 && data.summary.size() <= 500 &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    function isValidSafetyBackup(data) {
+      return data.createdByUid is string && data.createdByUid.size() >= 1 && data.createdByUid.size() <= 128 &&
+             data.reason is string && data.reason.size() >= 1 && data.reason.size() <= 200 &&
+             data.transactionCount is int && data.transactionCount >= 0 &&
+             data.accountCount is int && data.accountCount >= 0 &&
+             data.localFileName is string && data.localFileName.size() >= 1 && data.localFileName.size() <= 200 &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    // --- COLLECTION RULES ---
+
+    match /app_config/{configId} {
+      allow get: if configId == 'owner' &&
+                    (isVerifiedOwnerEmail() || (isSignedIn() && resource != null && resource.data.ownerUid == request.auth.uid));
+      allow list: if false;
+      allow create: if configId == 'owner' &&
+                       isVerifiedOwnerEmail() &&
+                       incoming().keys().hasAll(['ownerEmail', 'ownerUid', 'legacySuperAdminUid', 'uidVerified', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['ownerEmail', 'ownerUid', 'legacySuperAdminUid', 'uidVerified', 'updatedAt']) &&
+                       isValidOwnerConfig(incoming()) &&
+                       incoming().ownerEmail == 'ashrafmahmudsany2@gmail.com' &&
+                       incoming().ownerUid == request.auth.uid;
+      allow update: if configId == 'owner' &&
+                       isVerifiedOwnerEmail() &&
+                       incoming().keys().hasOnly(['ownerEmail', 'ownerUid', 'legacySuperAdminUid', 'uidVerified', 'updatedAt']) &&
+                       isValidOwnerConfig(incoming()) &&
+                       incoming().ownerEmail == 'ashrafmahmudsany2@gmail.com' &&
+                       incoming().ownerUid == request.auth.uid;
+      allow delete: if false;
+    }
+
+    match /employee_access/{employeeEmail} {
+      allow get: if isValidEmailId(employeeEmail) &&
+                    (isOwner() || (isSignedIn() && request.auth.token.email_verified == true && request.auth.token.email == employeeEmail));
+      allow list: if isOwner();
+      allow create: if isValidEmailId(employeeEmail) &&
+                       isOwner() &&
+                       incoming().keys().hasAll(['email', 'name', 'role', 'active', 'addedByUid', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['email', 'name', 'role', 'active', 'linkedUid', 'addedByUid', 'createdAt', 'updatedAt']) &&
+                       isValidEmployeeAccess(incoming()) &&
+                       incoming().email == employeeEmail &&
+                       incoming().addedByUid == request.auth.uid;
+      allow update: if isValidEmailId(employeeEmail) &&
+                       isOwner() &&
+                       isValidEmployeeAccess(incoming()) &&
+                       incoming().email == existing().email &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().addedByUid == existing().addedByUid &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['name', 'role', 'active', 'linkedUid', 'updatedAt']);
+      allow delete: if isValidEmailId(employeeEmail) && isOwner();
+    }
+
+    match /accounts/{accountId} {
+      allow get: if isValidId(accountId) && (isOwner() || isActiveEmployee());
+      allow list: if isOwner() || isActiveEmployee();
+      allow create: if isValidId(accountId) &&
+                       isOwner() &&
+                       incoming().keys().hasAll(['name', 'category', 'lastFourDigits', 'balancePaisa', 'sortOrder', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['name', 'category', 'lastFourDigits', 'balancePaisa', 'sortOrder', 'updatedAt']) &&
+                       isValidAccount(incoming());
+      allow update: if isValidId(accountId) &&
+                       isOwner() &&
+                       isValidAccount(incoming()) &&
+                       incoming().category == existing().category &&
+                       incoming().sortOrder == existing().sortOrder &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['balancePaisa', 'name', 'updatedAt']);
+      allow delete: if false;
+    }
+
+    match /partners/{partnerId} {
+      allow get: if isValidId(partnerId) && (isOwner() || isActiveEmployee());
+      allow list: if isOwner() || isActiveEmployee();
+      allow create: if isValidId(partnerId) &&
+                       isOwner() &&
+                       incoming().keys().hasAll(['name', 'commissionPerThousandPaisa', 'bKashOnlyCommission', 'canCustomizeCommission', 'totalSentPaisa', 'totalReceivedPaisa', 'totalCommissionExpensePaisa', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['name', 'commissionPerThousandPaisa', 'bKashOnlyCommission', 'canCustomizeCommission', 'totalSentPaisa', 'totalReceivedPaisa', 'totalCommissionExpensePaisa', 'updatedAt']) &&
+                       isValidPartner(incoming());
+      allow update: if isValidId(partnerId) &&
+                       isOwner() &&
+                       isValidPartner(incoming()) &&
+                       incoming().name == existing().name &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['commissionPerThousandPaisa', 'totalSentPaisa', 'totalReceivedPaisa', 'totalCommissionExpensePaisa', 'updatedAt']);
+      allow delete: if false;
+    }
+
+    match /transactions/{txId} {
+      allow get: if isValidId(txId) && isOwner();
+      allow list: if isOwner();
+      allow create: if isValidId(txId) &&
+                       isOwner() &&
+                       incoming().keys().hasAll([
+                         'type', 'subType', 'title', 'partyName', 'phone',
+                         'receiveAccountId', 'receiveAmountPaisa', 'payAccountId', 'payAmountPaisa',
+                         'commissionIncomePaisa', 'commissionExpensePaisa', 'expenseAmountPaisa',
+                         'interestIncomePaisa', 'interestExpensePaisa', 'capitalDeltaPaisa',
+                         'externalTxId', 'idempotencyKey', 'note', 'businessDateMillis',
+                         'partnerId', 'loanId', 'operatorName',
+                         'submittedByUid', 'submittedByName', 'approvedByUid',
+                         'reversed', 'reversedByTxId', 'reversalOfTxId', 'reversalReason',
+                         'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'type', 'subType', 'title', 'partyName', 'phone',
+                         'receiveAccountId', 'receiveAmountPaisa', 'payAccountId', 'payAmountPaisa',
+                         'commissionIncomePaisa', 'commissionExpensePaisa', 'expenseAmountPaisa',
+                         'interestIncomePaisa', 'interestExpensePaisa', 'capitalDeltaPaisa',
+                         'externalTxId', 'idempotencyKey', 'note', 'businessDateMillis',
+                         'partnerId', 'loanId', 'operatorName',
+                         'submittedByUid', 'submittedByName', 'approvedByUid',
+                         'reversed', 'reversedByTxId', 'reversalOfTxId', 'reversalReason',
+                         'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidTransaction(incoming()) &&
+                       incoming().approvedByUid == request.auth.uid;
+      allow update: if isValidId(txId) &&
+                       isOwner() &&
+                       isValidTransaction(incoming()) &&
+                       existing().reversed == false &&
+                       incoming().reversed == true &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().approvedByUid == existing().approvedByUid &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['reversed', 'reversedByTxId', 'reversalReason', 'updatedAt']);
+      allow delete: if false;
+    }
+
+    match /pending_transactions/{pendingId} {
+      allow get: if isValidId(pendingId) &&
+                    (isOwner() || (isActiveEmployee() && existing().submittedByUid == request.auth.uid));
+      allow list: if isOwner() || (isActiveEmployee() && existing().submittedByUid == request.auth.uid);
+      allow create: if isValidId(pendingId) &&
+                       (isOwner() || isActiveEmployee()) &&
+                       incoming().keys().hasAll([
+                         'status', 'type', 'subType', 'title', 'partyName', 'phone',
+                         'receiveAccountId', 'receiveAmountPaisa', 'payAccountId', 'payAmountPaisa',
+                         'commissionIncomePaisa', 'commissionExpensePaisa', 'expenseAmountPaisa',
+                         'interestIncomePaisa', 'interestExpensePaisa', 'capitalDeltaPaisa',
+                         'externalTxId', 'idempotencyKey', 'note', 'businessDateMillis',
+                         'partnerId', 'loanId', 'operatorName',
+                         'submittedByUid', 'submittedByEmail', 'submittedByName',
+                         'reviewedByUid', 'approvedTxId', 'rejectionReason',
+                         'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'status', 'type', 'subType', 'title', 'partyName', 'phone',
+                         'receiveAccountId', 'receiveAmountPaisa', 'payAccountId', 'payAmountPaisa',
+                         'commissionIncomePaisa', 'commissionExpensePaisa', 'expenseAmountPaisa',
+                         'interestIncomePaisa', 'interestExpensePaisa', 'capitalDeltaPaisa',
+                         'externalTxId', 'idempotencyKey', 'note', 'businessDateMillis',
+                         'partnerId', 'loanId', 'operatorName',
+                         'submittedByUid', 'submittedByEmail', 'submittedByName',
+                         'reviewedByUid', 'approvedTxId', 'rejectionReason',
+                         'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidPendingTransaction(incoming()) &&
+                       incoming().status == 'PENDING' &&
+                       incoming().submittedByUid == request.auth.uid &&
+                       incoming().submittedByEmail == request.auth.token.email;
+      allow update: if isValidId(pendingId) &&
+                       isOwner() &&
+                       isValidPendingTransaction(incoming()) &&
+                       existing().status == 'PENDING' &&
+                       (incoming().status == 'APPROVED' || incoming().status == 'REJECTED') &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().submittedByUid == existing().submittedByUid &&
+                       incoming().reviewedByUid == request.auth.uid &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['status', 'reviewedByUid', 'approvedTxId', 'rejectionReason', 'updatedAt']);
+      allow delete: if false;
+    }
+
+    match /transaction_keys/{keyId} {
+      allow get: if isValidId(keyId) && (isOwner() || isActiveEmployee());
+      allow list: if isOwner();
+      allow create: if isValidId(keyId) &&
+                       isOwner() &&
+                       incoming().keys().hasAll(['key', 'txId', 'createdByUid', 'createdAt']) &&
+                       incoming().keys().hasOnly(['key', 'txId', 'createdByUid', 'createdAt']) &&
+                       isValidTransactionKey(incoming()) &&
+                       incoming().createdByUid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    match /loans/{loanId} {
+      allow get: if isValidId(loanId) && isOwner();
+      allow list: if isOwner();
+      allow create: if isValidId(loanId) &&
+                       isOwner() &&
+                       incoming().keys().hasAll([
+                         'direction', 'personName', 'phone', 'accountId',
+                         'principalPaisa', 'interestPaisa', 'paidPrincipalPaisa', 'paidInterestPaisa',
+                         'startDateMillis', 'dueDateMillis', 'status', 'note',
+                         'createdByUid', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'direction', 'personName', 'phone', 'accountId',
+                         'principalPaisa', 'interestPaisa', 'paidPrincipalPaisa', 'paidInterestPaisa',
+                         'startDateMillis', 'dueDateMillis', 'status', 'note',
+                         'createdByUid', 'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidLoan(incoming()) &&
+                       incoming().createdByUid == request.auth.uid;
+      allow update: if isValidId(loanId) &&
+                       isOwner() &&
+                       isValidLoan(incoming()) &&
+                       existing().status != 'PAID' &&
+                       incoming().direction == existing().direction &&
+                       incoming().principalPaisa == existing().principalPaisa &&
+                       incoming().createdByUid == existing().createdByUid &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['paidPrincipalPaisa', 'paidInterestPaisa', 'status', 'note', 'updatedAt']);
+      allow delete: if false;
+
+      match /repayments/{repaymentId} {
+        allow get: if isValidId(loanId) && isValidId(repaymentId) && isOwner();
+        allow list: if isValidId(loanId) && isOwner();
+        allow create: if isValidId(loanId) &&
+                         isValidId(repaymentId) &&
+                         isOwner() &&
+                         incoming().keys().hasAll([
+                           'loanId', 'principalPaidPaisa', 'interestPaidPaisa',
+                           'accountId', 'repaymentDateMillis', 'note', 'txId', 'createdByUid', 'createdAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'loanId', 'principalPaidPaisa', 'interestPaidPaisa',
+                           'accountId', 'repaymentDateMillis', 'note', 'txId', 'createdByUid', 'createdAt'
+                         ]) &&
+                         isValidLoanRepayment(incoming()) &&
+                         incoming().loanId == loanId &&
+                         incoming().createdByUid == request.auth.uid;
+        allow update, delete: if false;
+      }
+    }
+
+    match /audit_logs/{logId} {
+      allow get: if isValidId(logId) && isOwner();
+      allow list: if isOwner();
+      allow create: if isValidId(logId) &&
+                       (isOwner() || (isActiveEmployee() && incoming().actorUid == request.auth.uid && incoming().actorEmail == request.auth.token.email)) &&
+                       incoming().keys().hasAll(['action', 'actorUid', 'actorEmail', 'targetId', 'summary', 'createdAt']) &&
+                       incoming().keys().hasOnly(['action', 'actorUid', 'actorEmail', 'targetId', 'summary', 'createdAt']) &&
+                       isValidAuditLog(incoming());
+      allow update, delete: if false;
+    }
+
+    match /safety_backups/{backupId} {
+      allow get: if isValidId(backupId) && isOwner();
+      allow list: if isOwner();
+      allow create: if isValidId(backupId) &&
+                       isOwner() &&
+                       incoming().keys().hasAll(['createdByUid', 'reason', 'transactionCount', 'accountCount', 'localFileName', 'createdAt']) &&
+                       incoming().keys().hasOnly(['createdByUid', 'reason', 'transactionCount', 'accountCount', 'localFileName', 'createdAt']) &&
+                       isValidSafetyBackup(incoming()) &&
+                       incoming().createdByUid == request.auth.uid;
+      allow update, delete: if false;
+    }
+  }
+}

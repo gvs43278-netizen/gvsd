@@ -1,0 +1,6 @@
+{
+  "name": "Business Manager Pro",
+  "description": "Native Android business, multi-account, partner, loan, and employee financial management app in Bengali (BDT).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
